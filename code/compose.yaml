@@ -1,0 +1,108 @@
+services:
+  
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "80:80"
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 20M  
+    healthcheck:
+          test: curl --fail http://localhost:80/ || exit 1
+          interval: 40s
+          timeout: 30s
+          retries: 3
+          start_period: 60s       
+
+  backend1:
+    build:
+      context: ./backend1
+    env_file:
+      - ./backend1/.env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mydb
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 100M 
+    healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+          interval: 40s
+          timeout: 30s
+          retries: 3
+          start_period: 60s              
+
+  backend2:
+    build:
+      context: ./backend2
+    env_file:
+      - ./backend2/.env
+    ports:
+      - "3001:3001"
+    depends_on:
+      - mydb
+    networks:
+      - app-network  
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 100M
+    healthcheck:
+          test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+          interval: 40s
+          timeout: 30s
+          retries: 3
+          start_period: 60s           
+      
+  mydb:
+    image: postgres:17.5-alpine3.22
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: fellowship
+      POSTGRES_PASSWORD: 12345678
+      POSTGRES_DB: fellowship
+    volumes:
+      - db_data:/var/lib/postgresql/data  
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 100M
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "fellowship"]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+      start_period: 10s     
+
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    ports:
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - app-network
+    restart: always
+    profiles: ["monitoring"]       
+
+networks:
+  app-network:
+
+volumes:
+  db_data:
